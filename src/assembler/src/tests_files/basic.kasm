@@ -1,0 +1,77 @@
+.global *_main
+
+.define VALOR_DECIMAL 320
+.define VALOR_HEXADEC $1000
+.define VALOR_BINARIO b10101010
+
+.text
+    _main:
+        nop
+        write x, y
+        write x, $10 
+        write x, $1234
+        write y, $20
+        write y, $1234
+        write $30, $40
+        write $5678, $40
+        write $30, $1234
+        write $5678, $1234
+        write y, $7F
+        write y, $1234
+        adc y, z
+        adc y, 1234
+        adc $80, $1234
+        sub y, z
+        sub y, $1234
+        sub $80, $1234
+        mlt y, z
+        mlt y, $1234
+        mlt $90, $123A
+        div y, z
+        div y, $1234
+        div $90, $1234
+        inc y
+        inc $90
+        dec y
+        dec $90
+        and y, z
+        and y, b00011010
+        or y, z
+        or y, $1234
+        ssl y, 8
+        srl y, 8
+        rol y, 8
+        ror y, 8
+        cmp y, z
+        clc
+        cln
+        clo
+        sec
+        sen
+        seo
+        push
+        push $1234
+        pop
+        jmp VALOR_BINARIO    ; valor coisado
+        jmp VALOR_HEXADEC    ; valor coisado
+        jmp VALOR_BINARIO    ; valor coisado
+        jr y
+        jal *_after
+        beq *_after
+        bne *_after
+        bge *_after
+        blt *_after
+        jmp *_main
+    _call:
+        return
+    _after:
+        nop
+    _done:
+        nop
+    _END:
+        nop
+
+.data
+    value_1: .int8  231
+    value_2: .int16 12142
+    hello: .string "Hello World\0"
