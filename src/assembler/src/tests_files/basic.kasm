@@ -35,7 +35,7 @@
         dec y
         dec $90
         and y, z
-        and y, b00011010
+        and y, %00011010
         or y, z
         or y, $1234
         ssl y, 8

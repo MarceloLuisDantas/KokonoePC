@@ -2,10 +2,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdbool.h>
 #include "tokens.h"
+
+bool ok = true;
 
 typedef struct Tokenizer {
     TokenList tokens;
+    TokenList labels;
     char* source;
     long position;
     long column;
@@ -52,6 +56,44 @@ void add_symbol(Tokenizer* self, TokenType t, char* value) {
     add_token(&self->tokens, n);
 }
 
+TokenType last_token_type(Tokenizer* self) {
+    return self->tokens.array[self->tokens.len-1].type;
+}
+
+void add_label(Tokenizer *self, char* value) {
+    for (int i = 0; i < self->labels.len; i++) {
+        Token label = self->labels.array[i];
+        if (strcmp(label.value, value)) {
+            printf("\n");
+            printf("Label \"%s\" defined multiple times.\n", value);
+            printf("First defined in line: %li.\n", label.line);
+            return;
+        }
+    }
+    Token l = new_token(LABEL, value, self->line, self->column);
+    add_token(&self->tokens, l);
+    add_token(&self->labels, l);
+}
+
+char* read_source(Tokenizer* self) {
+    long start = self->position;
+    for (;;) {
+        char nc = next(self);
+        if (
+            (nc >= 'a' && nc <= 'z') ||
+            (nc >= 'A' && nc <= 'Z') ||
+            (nc >= '0' && nc <= '9') ||
+            (nc == '_')
+        ) {
+            advance(self);
+        } else {
+            break;
+        }
+    }
+    char* value = get_slice(self, start, self->position);
+    return value;
+}
+
 void add_source(Tokenizer* self) {
     long start = self->position;
     for (;;) {
@@ -60,7 +102,7 @@ void add_source(Tokenizer* self) {
             (nc >= 'a' && nc <= 'z') ||
             (nc >= 'A' && nc <= 'Z') ||
             (nc >= '0' && nc <= '9') ||
-            (nc == '_') || (nc == '\\')
+            (nc == '_')
         ) {
             advance(self);
         } else {
@@ -68,7 +110,155 @@ void add_source(Tokenizer* self) {
         }
     }
     char* value = get_slice(self, start, self->position);
+    TokenType ltt = last_token_type(self);
+    if (ltt == LABEL_REF) {
+        add_symbol(self, LABEL, value);
+    }
+
     add_symbol(self, SOURCE, value);
+}
+
+inline TokenType get_token_type(TokenList* self, int i) {
+    return self->array[i].type;
+}
+
+inline void set_token_type(TokenList* self, int i, TokenType type) {
+    self->array[i].type = type;
+}
+
+void read_directive(Tokenizer* self) {
+    char* source = read_source(self);
+    if (strcmp(".define", source) == 0) {
+        add_symbol(self, DIRECTIVE_DEFINE, source);
+    } else if (strcmp(".int8", source) == 0) {
+        add_symbol(self, DIRECTIVE_INT8, source);
+    } else if (strcmp(".int16", source) == 0) {
+        add_symbol(self, DIRECTIVE_INT16, source);
+    } else if (strcmp(".string", source) == 0) {
+        add_symbol(self, DIRECTIVE_STRING, source);
+    } else if (strcmp(".text", source) == 0) {
+        add_symbol(self, DIRECTIVE_TEXT, source);
+    } else if (strcmp(".data", source) == 0) { 
+        add_symbol(self, DIRECTIVE_DATA, source);
+    } else if (strcmp(".global", source) == 0) { 
+        add_symbol(self, DIRECTIVE_GLOBAL, source);
+    } else {
+        printf("Invalid directive: %s\n", source);
+        printf("Line: %li.\n", self->line);
+    }
+}
+
+void read_label_ref(Tokenizer* self) {
+    char* source = read_source(self);
+    add_symbol(self, LABEL_REF, source);
+}
+
+void read_string(Tokenizer* self) {
+    long start = self->position;
+    if (advance(self)) {
+        printf("File ended during string declaration.\n");
+        exit(0);
+    }
+    bool valid = true;
+    for (;;) {
+        char nc = next(self);
+        if (nc == '\"') {
+            advance(self);
+            break;
+        } else if (nc == '\n') {
+            printf("Missing terminating \".\n");
+            printf("Line: %li, Column: %li\n", self->line, self->column);
+            return;
+        } else if (nc == '\\') {
+            advance(self);
+            char scape = next(self);
+            if (!((scape == '0') || (scape == 'n'))) {
+                printf("Invalid scape chracater: \'%c\'\n", scape);
+                valid = false;
+            }
+        }
+        if (advance(self)) {
+            printf("File ended during string declaration.\n");
+            exit(0);
+        }
+    }
+    if (valid) {
+        char* str = get_slice(self, start, self->position);
+        add_symbol(self, STRING, str);
+    } else {
+        ok = false;
+    }
+}
+
+void read_hexa(Tokenizer* self) {
+    long start = self->position;
+    bool valid = true;
+    for (;;) {
+        char nc = next(self);
+        if ((nc == '\n') || (nc == 0) || (nc == ',') || (nc == ' ')) {
+            break;
+        } 
+        
+        if (!(
+            (nc >= 'A' && nc <= 'F') ||
+            (nc >= '0' && nc <= '9') 
+        )) {
+            printf("Invalid hexadecimal chracater: \'%c\'\n", nc);
+            printf("Line: %li, Column: %li\n", self->line, self->column);
+            valid = false;
+        }
+
+        if (advance(self)) {
+            printf("File ended abruptly.\n");
+            exit(0);
+        }
+    }
+    if (self->position - start == 0) {
+        printf("Empty hexadecimal number.\n");
+        printf("Line: %li, Column: %li\n", self->line, self->column);
+        valid = false;
+    }
+
+    if (valid) {
+        char* str = get_slice(self, start, self->position);
+        add_symbol(self, HEX_NUMBER, str);
+    } else {
+        ok = false;
+    }
+}
+
+void read_binarie(Tokenizer* self) {
+    long start = self->position;
+    bool valid = true;
+    for (;;) {
+        char nc = next(self);
+        if ((nc == '\n') || (nc == 0)) {
+            break;
+        } 
+        
+        if (!(nc == '1' || nc == '0')) {
+            printf("Invalid binarie chracater: \'%c\'\n", nc);
+            printf("Line: %li, Column: %li\n", self->line, self->column);
+            valid = false;
+        }
+
+        if (advance(self)) {
+            printf("File ended abruptly.\n");
+            exit(0);
+        }
+    }
+    if (self->position - start == 0) {
+        printf("Empty binarie number.\n");
+        printf("Line: %li, Column: %li\n", self->line, self->column);
+        valid = false;
+    }
+
+    if (valid) {
+        char* str = get_slice(self, start, self->position);
+        add_symbol(self, BIN_NUMBER, str);
+    } else {
+        ok = false;
+    }
 }
 
 TokenList tokenize(Tokenizer* self) {
@@ -86,24 +276,30 @@ TokenList tokenize(Tokenizer* self) {
             add_symbol(self, COMMA, ",");
             break;
         case '.':
-            add_symbol(self, DIRECTIVE_NOTATION, ".");
+            read_directive(self);
             break;
         case ':':
             add_symbol(self, LABEL_DEF, ":");
             break;
         case '*':
-            add_symbol(self, LABEL_REF, "*");
+            read_label_ref(self);
             break;
         case '"':
-            add_symbol(self, QUOTATION, "\"");
+            read_string(self);
             break;
         case '$':
-            add_symbol(self, HEX_NUMBER, "$");
+            read_hexa(self);
+            break;
+        case '%':
+            read_binarie(self);
+        case ' ':
             break;
         case ';':
-            while (next(self) != '\n')
-                advance(self);
-        case ' ':
+            if (next(self) == 0)
+                goto ended;
+            while (next(self) != '\n') 
+                if (advance(self)) 
+                    goto ended;        
             break;
         default:
             if (
@@ -128,7 +324,13 @@ TokenList tokenize(Tokenizer* self) {
             break;
         }
     }
+
+ended:
     add_symbol(self, END_OF_FILE, "EOF");
+
+    if (!ok) {
+        exit(0);
+    }
 
     return self->tokens;
 }

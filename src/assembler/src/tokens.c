@@ -7,7 +7,13 @@ typedef enum {
     COMMA,              // ,
     SOURCE,             // any string without symbol
     DIRECTIVE_NOTATION, // .
-    DIRECTIVE,          //
+    DIRECTIVE_DEFINE,   //
+    DIRECTIVE_GLOBAL,   //
+    DIRECTIVE_TEXT,   //
+    DIRECTIVE_DATA,   //
+    DIRECTIVE_INT8,   //
+    DIRECTIVE_INT16,   //
+    DIRECTIVE_STRING,   //
     CONSTANT_LABEL,     //
     INSTRUCTION,        //
     REGISTER,           //
@@ -56,8 +62,26 @@ void print_token(Token t) {
     case DIRECTIVE_NOTATION:
         printf("DIRECTIVE_NOTATION, ");
         break;
-    case DIRECTIVE:
-        printf("DIRECTIVE, ");
+    case DIRECTIVE_DEFINE:
+        printf("DIRECTIVE_DEFINE, ");
+        break;
+    case DIRECTIVE_GLOBAL:
+        printf("DIRECTIVE_GLOBAL, ");
+        break;
+    case DIRECTIVE_TEXT:
+        printf("DIRECTIVE_TEXT, ");
+        break;
+    case DIRECTIVE_DATA:
+        printf("DIRECTIVE_DATA, ");
+        break;
+    case DIRECTIVE_INT8:
+        printf("DIRECTIVE_INT8, ");
+        break;
+    case DIRECTIVE_INT16:
+        printf("DIRECTIVE_INT16, ");
+        break;
+    case DIRECTIVE_STRING:
+        printf("DIRECTIVE_STRING, ");
         break;
     case INSTRUCTION:
         printf("INSTRUCTION, ");

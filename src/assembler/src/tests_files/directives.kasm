@@ -1,0 +1,10 @@
+.global *_main
+.text
+.data
+.define VALOR_DECIMAL 320
+.define VALOR_HEXADEC $1000
+.define VALOR_BINARIO b10101010
+.int8 231
+.int16 12142
+.string "Hello World\0"
+; _main:
