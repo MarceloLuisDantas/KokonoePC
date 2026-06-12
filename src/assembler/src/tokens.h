@@ -8,10 +8,10 @@
         DIRECTIVE_NOTATION, // .
         DIRECTIVE_DEFINE,   //
         DIRECTIVE_GLOBAL,   //
-        DIRECTIVE_TEXT,   //
-        DIRECTIVE_DATA,   //
-        DIRECTIVE_INT8,   //
-        DIRECTIVE_INT16,   //
+        DIRECTIVE_TEXT,     //
+        DIRECTIVE_DATA,     //
+        DIRECTIVE_INT8,     //
+        DIRECTIVE_INT16,    //
         DIRECTIVE_STRING,   //
         CONSTANT_LABEL,     //
         INSTRUCTION,        //

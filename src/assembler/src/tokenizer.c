@@ -86,8 +86,15 @@ char* read_source(Tokenizer* self) {
             (nc == '_')
         ) {
             advance(self);
-        } else {
+        } else if (
+            (nc == ',') || (nc == ' ') || (nc == '\n')
+        ) {
             break;
+        } else {
+            printf("Invalid character: \'%c\'\n", nc);
+            printf("Line: %li, Column: %li\n", self->line, self->column);
+            ok = false;
+            return NULL;
         }
     }
     char* value = get_slice(self, start, self->position);
@@ -112,17 +119,42 @@ void add_source(Tokenizer* self) {
     char* value = get_slice(self, start, self->position);
     TokenType ltt = last_token_type(self);
     if (ltt == LABEL_REF) {
-        add_symbol(self, LABEL, value);
+        char* n_value = malloc(strlen(value)+2);
+        n_value[0] = '*';
+        for (size_t i = 1; i < strlen(value)+2; i++) {
+            n_value[i] = value[i-1];
+        }
+        free(self->tokens.array[self->tokens.len-1].value);
+        self->tokens.array[self->tokens.len-1].value = n_value;
+        return;
+    } 
+
+    if (strlen(value) == 1) {
+        if (
+            (value[0] == 'a') || 
+            (value[0] == 'x') || 
+            (value[0] == 'y') || 
+            (value[0] == 'z')
+        ) {
+            add_symbol(self, REGISTER, value);
+            return;
+        } 
+    } else if (strlen(value) == 2) {
+        if (strcmp(value, "sp") == 0) {
+            add_symbol(self, REGISTER, value);
+            return;
+        }
     }
+    
 
     add_symbol(self, SOURCE, value);
 }
 
-inline TokenType get_token_type(TokenList* self, int i) {
+TokenType get_token_type(TokenList* self, int i) {
     return self->array[i].type;
 }
 
-inline void set_token_type(TokenList* self, int i, TokenType type) {
+void set_token_type(TokenList* self, int i, TokenType type) {
     self->array[i].type = type;
 }
 
@@ -264,6 +296,7 @@ void read_binarie(Tokenizer* self) {
 TokenList tokenize(Tokenizer* self) {
     add_symbol(self, BEG_OF_FILE, "BOG");
     for (;;) {
+        TokenType ltt = last_token_type(self);
         char cr = current(self);
         switch (cr)
         {
@@ -273,13 +306,34 @@ TokenList tokenize(Tokenizer* self) {
             self->column = 1;
             break;
         case ',':
-            add_symbol(self, COMMA, ",");
+            if (
+                ltt == REGISTER || 
+                ltt == BIN_NUMBER ||
+                ltt == DEC_NUMBER ||
+                ltt == HEX_NUMBER 
+            ) {
+                add_symbol(self, COMMA, ",");
+            } else {
+                printf("Bad use of ','.\n");
+                printf("Line: %li, Column: %li\n", self->line, self->column);
+            }
             break;
         case '.':
             read_directive(self);
             break;
         case ':':
-            add_symbol(self, LABEL_DEF, ":");
+            TokenType ltt = last_token_type(self);
+            if (ltt == SOURCE) {
+                set_token_type(&self->tokens, self->tokens.len-1, LABEL_DEF);
+                char* og_str = self->tokens.array[self->tokens.len-1].value;
+                long og_len = strlen(og_str) + 1;
+                char* c = malloc(sizeof(char) * (og_len + 1));
+                strcpy(c, og_str);
+                c[og_len-1] = ':';
+                c[og_len] = '\0';
+                free(og_str);
+                self->tokens.array[self->tokens.len-1].value = c;
+            }
             break;
         case '*':
             read_label_ref(self);
